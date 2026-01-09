@@ -35,7 +35,7 @@ const PasswordGenerator = () => {
         if (!password) return;
         await navigator.clipboard.writeText(password);
         setCopied(true);
-        setTimeout(() => setCopied(false), 1200);
+        setTimeout(() => setCopied(false), 1500); // tooltip disappears after 1.5s
     };
 
     const score = useMemo(() => {
@@ -61,17 +61,29 @@ const PasswordGenerator = () => {
     return (
         <div className="bg-gray-800 rounded-2xl shadow-xl p-6">
             {/* Display + copy */}
-            <div className="flex items-center gap-3 bg-gray-900 rounded-xl p-4">
-                <div className="flex-1 font-mono text-lg truncate">{password || "Generate a password…"}</div>
-                <button
-                    onClick={copyToClipboard}
-                    className="px-3 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 active:scale-95 transition"
-                    disabled={!password}
-                    aria-label="Copy password"
-                >
-                    {copied ? "Copied!" : "Copy"}
-                </button>
+            <div className="mt-4 bg-gray-700 p-3 rounded-lg flex justify-between items-center relative">
+                <span className="font-mono">{password || "Generate a password…"}</span>
+                <div className="relative">
+                    <button
+                        onClick={copyToClipboard}
+                        disabled={!password}   // ✅ disabled by default
+                        className={`ml-2 px-3 py-1 rounded-lg text-sm transition relative 
+        ${!password
+                                ? "bg-gray-500 cursor-not-allowed"
+                                : "bg-blue-500 hover:bg-blue-600 active:scale-95"}`}
+                    >
+                        Copy
+                    </button>
+
+                    {/* Tooltip */}
+                    {copied && (
+                        <div className="absolute -top-10 right-0 bg-black text-white text-xs rounded-md px-2 py-1 shadow-lg animate-fade-in">
+                            Copied!
+                        </div>
+                    )}
+                </div>
             </div>
+
 
             {/* Controls */}
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
