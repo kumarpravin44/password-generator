@@ -1,55 +1,52 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
+
+const upperSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const lowerSet = "abcdefghijklmnopqrstuvwxyz";
+const numberSet = "0123456789";
+const symbolSet = "!@#$%^&*()_+[]{}<>?/|~";
 
 const PasswordGenerator = () => {
     const [length, setLength] = useState(12);
-    const [upper, setUpper] = useState(true);
-    const [lower, setLower] = useState(true);
-    const [numbers, setNumbers] = useState(true);
-    const [symbols, setSymbols] = useState(true);
+    const [includeUpper, setIncludeUpper] = useState(true);
+    const [includeLower, setIncludeLower] = useState(true);
+    const [includeNumbers, setIncludeNumbers] = useState(true);
+    const [includeSymbols, setIncludeSymbols] = useState(true);
+
     const [password, setPassword] = useState("");
     const [copied, setCopied] = useState(false);
+    const [error, setError] = useState("");
 
+    // Build charset based on toggles
     const charset = useMemo(() => {
         let chars = "";
-        if (upper) chars += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        if (lower) chars += "abcdefghijklmnopqrstuvwxyz";
-        if (numbers) chars += "0123456789";
-        if (symbols) chars += "!@#$%^&*()_+[]{}<>?/|~";
+        if (includeUpper) chars += upperSet;
+        if (includeLower) chars += lowerSet;
+        if (includeNumbers) chars += numberSet;
+        if (includeSymbols) chars += symbolSet;
         return chars;
-    }, [upper, lower, numbers, symbols]);
+    }, [includeUpper, includeLower, includeNumbers, includeSymbols]);
 
-    const generatePassword = () => {
-        if (!charset) {
-            setPassword("");
-            return;
-        }
-        let result = "";
-        for (let i = 0; i < Number(length); i++) {
-            result += charset[Math.floor(Math.random() * charset.length)];
-        }
-        setPassword(result);
-        setCopied(false);
-    };
-
-    const copyToClipboard = async () => {
-        if (!password) return;
-        await navigator.clipboard.writeText(password);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500); // tooltip disappears after 1.5s
-    };
-
+    // Strength scoring (simple heuristic)
     const score = useMemo(() => {
         let s = 0;
-        if (upper) s++;
-        if (lower) s++;
-        if (numbers) s++;
-        if (symbols) s++;
+        if (includeUpper) s++;
+        if (includeLower) s++;
+        if (includeNumbers) s++;
+        if (includeSymbols) s++;
         if (length >= 12) s++;
         if (length >= 16) s++;
         return Math.min(s, 6);
-    }, [upper, lower, numbers, symbols, length]);
+    }, [includeUpper, includeLower, includeNumbers, includeSymbols, length]);
 
-    const strengthLabel = ["Very weak", "Weak", "Fair", "Good", "Strong", "Very strong"][Math.max(0, score - 1)];
+    const strengthLabel = [
+        "Very weak",
+        "Weak",
+        "Fair",
+        "Good",
+        "Strong",
+        "Very strong",
+    ][Math.max(0, score - 1)];
+
     const strengthColor = [
         "bg-red-500",
         "bg-orange-500",
@@ -58,45 +55,109 @@ const PasswordGenerator = () => {
         "bg-green-600",
     ][Math.max(0, Math.min(4, score - 2))];
 
+    const generatePassword = () => {
+        // Validation: at least one checkbox must be selected
+        if (!includeUpper && !includeLower && !includeNumbers && !includeSymbols) {
+            setPassword("");
+            setError("At least one option must be selected!");
+            return;
+        }
+        setError("");
+
+        const len = Number(length);
+        if (!charset || len <= 0) {
+            setPassword("");
+            setError("Invalid configuration.");
+            return;
+        }
+
+        let result = "";
+
+        // Ensure at least one of each selected type appears
+        const buckets = [];
+        if (includeUpper) buckets.push(upperSet);
+        if (includeLower) buckets.push(lowerSet);
+        if (includeNumbers) buckets.push(numberSet);
+        if (includeSymbols) buckets.push(symbolSet);
+
+        buckets.forEach((bucket) => {
+            result += bucket[Math.floor(Math.random() * bucket.length)];
+        });
+
+        for (let i = result.length; i < len; i++) {
+            result += charset[Math.floor(Math.random() * charset.length)];
+        }
+
+        // Shuffle
+        result = result
+            .split("")
+            .sort(() => Math.random() - 0.5)
+            .join("");
+
+        setPassword(result);
+        setCopied(false);
+    };
+
+    const copyToClipboard = async () => {
+        if (!password || error) return;
+        await navigator.clipboard.writeText(password);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+    };
+
     return (
         <div className="bg-gray-800 rounded-2xl shadow-xl p-6">
             {/* Display + copy */}
-            <div className="mt-4 bg-gray-700 p-3 rounded-lg flex justify-between items-center relative">
-                <span className="font-mono">{password || "Generate a password…"}</span>
+            <div className="flex items-center gap-3 bg-gray-900 rounded-xl p-4 relative">
+                <div
+                    className={`flex-1 font-mono text-lg truncate ${password ? "text-white" : "text-gray-400"
+                        }`}
+                >
+                    {password || "Generate a password…"}
+                </div>
+
                 <div className="relative">
                     <button
                         onClick={copyToClipboard}
-                        disabled={!password}   // ✅ disabled by default
-                        className={`ml-2 px-3 py-1 rounded-lg text-sm transition relative 
-        ${!password
-                                ? "bg-gray-500 cursor-not-allowed"
-                                : "bg-blue-500 hover:bg-blue-600 active:scale-95"}`}
+                        disabled={!password || !!error}
+                        className={`px-3 py-2 rounded-lg text-sm transition relative
+              ${!password || !!error
+                                ? "bg-gray-600 cursor-not-allowed"
+                                : "bg-blue-500 hover:bg-blue-600 active:scale-95"
+                            }`}
+                        aria-label="Copy password"
                     >
                         Copy
                     </button>
 
-                    {/* Tooltip */}
                     {copied && (
-                        <div className="absolute -top-10 right-0 bg-black text-white text-xs rounded-md px-2 py-1 shadow-lg animate-fade-in">
+                        <div className="absolute -top-9 right-0 bg-black text-white text-xs rounded-md px-2 py-1 shadow-lg animate-fade-in-up">
                             Copied!
                         </div>
                     )}
                 </div>
             </div>
 
+            {/* Error message */}
+            {error && (
+                <p className="mt-2 text-red-400 font-semibold text-sm animate-fade-in-up">
+                    {error}
+                </p>
+            )}
 
             {/* Controls */}
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="col-span-1">
                     <label className="block text-sm text-gray-300 mb-2">
-                        Length: <span className="font-semibold text-emerald-400">{length}</span>
+                        <span className="mr-2">Length:</span>
+                        <span className="font-semibold text-emerald-400">{length}</span>
                     </label>
                     <input
                         type="range"
                         min="6"
                         max="32"
                         value={length}
-                        onChange={(e) => setLength(e.target.value)}
+                        onChange={(e) => setLength(Number(e.target.value))}
                         className="w-full accent-emerald-400"
                         aria-label="Password length"
                     />
@@ -106,8 +167,8 @@ const PasswordGenerator = () => {
                     <label className="flex items-center gap-2">
                         <input
                             type="checkbox"
-                            checked={upper}
-                            onChange={() => setUpper(!upper)}
+                            checked={includeUpper}
+                            onChange={() => setIncludeUpper(!includeUpper)}
                             className="accent-emerald-400"
                         />
                         <span>Include uppercase</span>
@@ -115,8 +176,8 @@ const PasswordGenerator = () => {
                     <label className="flex items-center gap-2">
                         <input
                             type="checkbox"
-                            checked={lower}
-                            onChange={() => setLower(!lower)}
+                            checked={includeLower}
+                            onChange={() => setIncludeLower(!includeLower)}
                             className="accent-emerald-400"
                         />
                         <span>Include lowercase</span>
@@ -124,8 +185,8 @@ const PasswordGenerator = () => {
                     <label className="flex items-center gap-2">
                         <input
                             type="checkbox"
-                            checked={numbers}
-                            onChange={() => setNumbers(!numbers)}
+                            checked={includeNumbers}
+                            onChange={() => setIncludeNumbers(!includeNumbers)}
                             className="accent-emerald-400"
                         />
                         <span>Include numbers</span>
@@ -133,12 +194,15 @@ const PasswordGenerator = () => {
                     <label className="flex items-center gap-2">
                         <input
                             type="checkbox"
-                            checked={symbols}
-                            onChange={() => setSymbols(!symbols)}
+                            checked={includeSymbols}
+                            onChange={() => setIncludeSymbols(!includeSymbols)}
                             className="accent-emerald-400"
                         />
                         <span>Include symbols</span>
                     </label>
+                    {!includeUpper && !includeLower && !includeNumbers && !includeSymbols && (
+                        <p className="text-xs text-red-400">At least one option must be selected.</p>
+                    )}
                 </div>
             </div>
 
@@ -160,7 +224,7 @@ const PasswordGenerator = () => {
             <div className="mt-6 flex items-center justify-between">
                 <button
                     onClick={generatePassword}
-                    className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2 rounded-lg transition active:scale-95"
+                    className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2 rounded-lg transition active:scale-95 animate-pulse-once"
                 >
                     Generate
                 </button>
